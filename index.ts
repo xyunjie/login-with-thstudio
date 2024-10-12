@@ -43,9 +43,7 @@ async function callback({ state, code }) {
     // 在 OAuth 协议中，需要使用 state 和 code 换取 access_token 再调用 API，这在不同系统中可能设计不同。
     // 系统会根据返回的用户信息自动查找已有用户或是创建新用户。
     const tokenApi = `${endpoint || 'https://admin.tihangstudio.cn'}/oauth2/token?grant_type=authorization_code&client_id=${appid}&client_secret=${secret}&code=${code}`;
-    console.log('TokenAPi', tokenApi);
     const res = await superagent.get(tokenApi);
-    console.log('请求token');
     if (res.body.error) {
         throw new UserFacingError(
             res.body.error, res.body.error_description, res.body.error_uri,
@@ -56,15 +54,13 @@ async function callback({ state, code }) {
     const userInfo = await superagent.get(userInfoApi)
         .set('User-Agent', 'Hydro-OAuth')
         .set('Accept', 'application/vnd.github.v3+json');
-    console.log('请求用户信息', userInfoApi);
-    console.log(userInfo.body)
     const ret = {
         _id: `${userInfo.body.openId}`,
         email: userInfo.body.email,
         // 提供多个用户名，若需创建用户则从前往后尝试，直到用户名可用
         uname: `${userInfo.body.name}`,
         studentId: userInfo.body.studentId,
-        ojUid: userInfo.body.ojUid,
+        uid: userInfo.body.ojUid,
         avatar: `url:${userInfo.body.avatar}`,
     };
     await TokenModel.del(state, TokenModel.TYPE_OAUTH);
