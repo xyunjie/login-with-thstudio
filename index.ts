@@ -26,7 +26,6 @@ async function get(this: Handler) {
 
 // 当用户在三方系统中完成授权，需要重定向到 /oauth/xxx/callback，这时所有返回的参数作为 callback 的一参数传入。
 async function callback({ state, code }) {
-    console.log('进入回调函数');
     
     // 获取系统设置和之前的状态。
     const [[appid, secret, endpoint, url], s] = await Promise.all([
@@ -38,7 +37,6 @@ async function callback({ state, code }) {
         ]),
         TokenModel.get(state, TokenModel.TYPE_OAUTH),
     ]);
-    console.log('步骤一');
     // 使用从 url 中返回的 token 请求第三方的 API，获取用户信息，作为函数返回。
     // 在 OAuth 协议中，需要使用 state 和 code 换取 access_token 再调用 API，这在不同系统中可能设计不同。
     // 系统会根据返回的用户信息自动查找已有用户或是创建新用户。
