@@ -1,0 +1,11 @@
+{
+  "name": "@hydrooj/login-whit-thstudio",
+  "version": "0.0.1",
+  "description": "使用梯航Studio登录HydroOJ",
+  "main": "index.ts",
+  "author": "Accepted",
+  "license": "MIT",
+  "devDependencies": {
+    "hydrooj": "^4.16.0"
+  }
+}
