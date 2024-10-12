@@ -1,0 +1,15 @@
+id:
+  type: text
+  category: system
+  desc: ThStudio OAuth ClientID
+  name: id
+secret:
+  type: text
+  category: system
+  desc: ThStudio OAuth Secret
+  name: secret
+endpoint:
+  type: text
+  category: system
+  desc: ThStudio OAuth endpoint
+  name: endpoint
