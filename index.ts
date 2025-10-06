@@ -41,6 +41,7 @@ export default class ThStudioOAuthService extends Service {
 
                 // 1. 请求 token
                 const tokenApi = `${config.endpointApi}/admin-api/system/oauth2/token?grant_type=authorization_code&code=${code}&state=${state}&redirect_uri=${url}oauth/thstudio/callback`;
+                console.log('请求 token 地址', tokenApi);
                 const res = await superagent.post(tokenApi)
                     .set('Authorization', `Basic ${btoa(`${config.id}:${config.secret}`)}`);
                 if (res.body.error) {
