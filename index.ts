@@ -52,13 +52,11 @@ export default class ThStudioOAuthService extends Service {
                 if (tokenInfo.scope.includes('user.read') === false) {
                     throw new ForbiddenError('需要 读取用户信息 权限。');
                 }
-
+                console.log(token)
                 // 2. 请求用户信息
                 const userInfoApi = `${config.endpointApi}/admin-api/system/oauth2/user/get`;
                 const userResp = await superagent.get(userInfoApi)
-                    .set('User-Agent', 'Hydro-OAuth')
-                    .set('Authorization', token)
-                    .set('Accept', 'application/vnd.github.v3+json');
+                    .set('Authorization', token);
                 const userInfo = userResp.body?.data ?? userResp.body;
                 console.log(userInfo);
                 const ret = {
