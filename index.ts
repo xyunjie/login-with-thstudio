@@ -40,7 +40,7 @@ export default class ThStudioOAuthService extends Service {
 
                 // 1. 请求 token
                 const tokenApi = `${config.endpointApi}/admin-api/system/oauth2/token?grant_type=authorization_code&code=${code}&state=${state}`;
-                const res = await superagent.get(tokenApi)
+                const res = await superagent.post(tokenApi)
                     .set('Authorization', `Basic ${btoa(`${config.id}:${config.secret}`)}`);
                 if (res.body.error) {
                     throw new UserFacingError(
@@ -48,7 +48,7 @@ export default class ThStudioOAuthService extends Service {
                     );
                 }
                 const tokenInfo = res.body.data;
-                console.log(res);
+                console.log(res.body);
                 const token = `${tokenInfo.token_type} ${tokenInfo.access_token}`;
                 if (tokenInfo.scope.includes('user.read') === false) {
                     throw new ForbiddenError('需要 读取用户信息 权限。');
