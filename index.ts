@@ -26,7 +26,7 @@ export default class ThStudioOAuthService extends Service {
                     SystemModel.get('server.url'),
                     TokenModel.add(TokenModel.TYPE_OAUTH, 600, { redirect: this.request.referer }),
                 ]);
-                this.response.redirect = `${config.endpoint}/auth/sso-login?response_type=code&client_id=${config.id}&redirect_uri=${url}oauth/thstudio/callback&state=${state}`;
+                this.response.redirect = `${config.endpoint}/#/auth/sso-login?response_type=code&client_id=${config.id}&redirect_uri=${url}oauth/thstudio/callback&state=${state}`;
             },
 
             // 回调处理
@@ -47,6 +47,7 @@ export default class ThStudioOAuthService extends Service {
                     );
                 }
                 const tokenInfo = res.body.data;
+                console.log(tokenInfo);
                 const token = `${tokenInfo.token_type} ${tokenInfo.access_token}`;
                 if (tokenInfo.scope.includes('user.read') === false) {
                     throw new ForbiddenError('需要 读取用户信息 权限。');
