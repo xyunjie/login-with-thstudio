@@ -41,7 +41,7 @@ export default class ThStudioOAuthService extends Service {
                 // 1. 请求 token
                 const tokenApi = `${config.endpointApi}/admin-api/system/oauth2/token?grant_type=authorization_code&code=${code}&state=${state}`;
                 const res = await superagent.get(tokenApi)
-                    .set('Authorization', `Basic ${config.id}:${config.secret}`);
+                    .set('Authorization', `Basic ${btoa(`${config.id}:${config.secret}`)}`);
                 if (res.body.error) {
                     throw new UserFacingError(
                         res.body.error, res.body.error_description, res.body.error_uri,
