@@ -22,10 +22,11 @@ export default class ThStudioOAuthService extends Service {
 
             // 当用户点击登录按钮时
             get: async function get(this: Handler) {
-                const [url, [state]] = await Promise.all([
-                    SystemModel.get('server.url'),
-                    TokenModel.add(TokenModel.TYPE_OAUTH, 600, { redirect: this.request.referer }),
-                ]);
+                const [state] = await TokenModel.add(TokenModel.TYPE_OAUTH, 600, {
+                    redirect: this.request.referer,
+                });
+                console.log('保存的路由', this.request.referer);
+                const url = SystemModel.get('server.url');
                 this.response.redirect = `${config.endpoint}/#/auth/sso-login?response_type=code&client_id=${config.id}&redirect_uri=${url}oauth/thstudio/callback&state=${state}`;
             },
 
@@ -50,7 +51,7 @@ export default class ThStudioOAuthService extends Service {
                 const tokenInfo = res.body.data;
                 const token = `${tokenInfo.access_token}`;
                 if (tokenInfo.scope.includes('user.read') === false) {
-                    throw new ForbiddenError('需要 读取用户信息 权限。');
+                    throw new UserFacingError('需要 读取用户信息 权限。');
                 }
                 console.log(token)
                 // 2. 请求用户信息
@@ -67,10 +68,11 @@ export default class ThStudioOAuthService extends Service {
                     uid: userInfo.uid,
                     avatar: `url:${userInfo.avatar}`,
                 };
-                this.response.redirect = s.redirect;
-
                 await TokenModel.del(state, TokenModel.TYPE_OAUTH);
-                if (!ret.email) throw new ForbiddenError('您没有经过验证的电子邮件。');
+                this.response.redirect = s.redirect;
+                console.log('即将跳转', s.redirect);
+                
+                if (!ret.email) throw new UserFacingError('您没有经过验证的电子邮件。');
                 return ret;
             },
         });
