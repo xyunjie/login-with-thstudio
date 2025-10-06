@@ -1,85 +1,84 @@
 import {
-    Context, ForbiddenError, Handler, superagent, SystemModel,
-    UserFacingError, TokenModel
+    Context, Handler, Schema, Service, superagent, SystemModel,
+    TokenModel, UserFacingError, ForbiddenError,
 } from 'hydrooj';
 
-declare module 'hydrooj' {
-    interface SystemKeys {
-        'login-with-thstudio.id': string;
-        'login-with-thstudio.secret': string;
-        'login-with-thstudio.endpoint': string;
-        'login-with-thstudio.endpointApi': string;
-    }
-}
-
-// 当用户点击 【使用 XX 登录】 按钮时，此函数会被执行
-async function get(this: Handler) {
-    // 从系统设置中获取基础设置，并储存状态信息（完成登录逻辑后应该跳转到哪一页）
-    const [appid, oauth_url, url, [state]] = await Promise.all([
-        SystemModel.get('login-with-thstudio.id'),
-        SystemModel.get('login-with-thstudio.endpoint'),
-        SystemModel.get('server.url'),
-        TokenModel.add(TokenModel.TYPE_OAUTH, 600, { redirect: this.request.referer }),
-    ]);
-    // 将用户重定向至第三方平台请求授权。
-    this.response.redirect = `${oauth_url}/auth/sso-login?response_type=code&client_id=${appid}&redirect_uri=${url}oauth/thstudio/callback&state=${state}`;
-}
-
-// 当用户在三方系统中完成授权，需要重定向到 /oauth/xxx/callback，这时所有返回的参数作为 callback 的一参数传入。
-async function callback({ state, code }) {
-    
-    // 获取系统设置和之前的状态。
-    const [[endpointApi, url], s] = await Promise.all([
-        SystemModel.getMany([
-            'login-with-thstudio.endpointApi',
-            'server.url',
-        ]),
-        TokenModel.get(state, TokenModel.TYPE_OAUTH),
-    ]);
-    // 使用从 url 中返回的 token 请求第三方的 API，获取用户信息，作为函数返回。
-    // 在 OAuth 协议中，需要使用 state 和 code 换取 access_token 再调用 API，这在不同系统中可能设计不同。
-    // 系统会根据返回的用户信息自动查找已有用户或是创建新用户。
-    const tokenApi = `${endpointApi}/admin-api/system/oauth2/token?grant_type=authorization_code&code=${code}&state=${state}`;
-    const res = await superagent.get(tokenApi);
-    if (res.body.error) {
-        throw new UserFacingError(
-            res.body.error, res.body.error_description, res.body.error_uri,
-        );
-    }
-    const tokenInfo = res.body.data;
-    const token = `${tokenInfo.token_type} ${tokenInfo.access_token}`;
-    if (tokenInfo.scope.includes('user.read') === false) {
-        throw new ForbiddenError('需要 读取用户信息 权限。');
-    }
-    const userInfoApi = `${endpointApi}/admin-api/system/oauth2/user/get`;
-    const userResp = await superagent.get(userInfoApi)
-        .set('User-Agent', 'Hydro-OAuth')
-        .set('Authorization', token)
-        .set('Accept', 'application/vnd.github.v3+json');
-    const userInfo = userResp.data;
-    const ret = {
-        _id: `${userInfo.id}`,
-        email: userInfo.email,
-        // 提供多个用户名，若需创建用户则从前往后尝试，直到用户名可用
-        uname: `${userInfo.nickname}`,
-        studentId: userInfo.studentId,
-        uid: userInfo.uid,
-        avatar: `url:${userInfo.avatar}`,
-    };
-    await TokenModel.del(state, TokenModel.TYPE_OAUTH);
-    this.response.redirect = s.redirect;
-    if (!ret.email) throw new ForbiddenError("您没有经过验证的电子邮件。");
-    return ret;
-}
-
-// 注册此模块。
-export function apply(ctx: Context) {
-    ctx.provideModule('oauth', 'thstudio', {
-        text: 'Login with ThStudio',
-        callback,
-        get,
+export default class ThStudioOAuthService extends Service {
+    static inject = ['oauth'];
+    static Config = Schema.object({
+        id: Schema.string().description('ThStudio OAuth AppID').required(),
+        secret: Schema.string().description('ThStudio OAuth Secret').role('secret').required(),
+        endpoint: Schema.string().description('ThStudio OAuth Endpoint').required(),
+        endpointApi: Schema.string().description('ThStudio OAuth API Endpoint').required(),
+        canRegister: Schema.boolean().default(true),
     });
-    ctx.i18n.load('zh', {
-        'Login with ThStudio': '使用 梯航Studio 登录',
-    });
+
+    constructor(ctx: Context, config: ReturnType<typeof ThStudioOAuthService.Config>) {
+        super(ctx, 'oauth.thstudio');
+        ctx.oauth.provide('thstudio', {
+            text: 'Login with ThStudio',
+            name: 'ThStudio',
+            canRegister: config.canRegister,
+
+            // 当用户点击登录按钮时
+            get: async function get(this: Handler) {
+                const [url, [state]] = await Promise.all([
+                    SystemModel.get('server.url'),
+                    TokenModel.add(TokenModel.TYPE_OAUTH, 600, { redirect: this.request.referer }),
+                ]);
+                this.response.redirect = `${config.endpoint}/auth/sso-login?response_type=code&client_id=${config.id}&redirect_uri=${url}oauth/thstudio/callback&state=${state}`;
+            },
+
+            // 回调处理
+            callback: async function callback(this: Handler, { state, code, error }) {
+                if (error) throw new UserFacingError(error);
+
+                const [url, s] = await Promise.all([
+                    SystemModel.get('server.url'),
+                    TokenModel.get(state, TokenModel.TYPE_OAUTH),
+                ]);
+
+                // 1. 请求 token
+                const tokenApi = `${config.endpointApi}/admin-api/system/oauth2/token?grant_type=authorization_code&code=${code}&state=${state}`;
+                const res = await superagent.get(tokenApi);
+                if (res.body.error) {
+                    throw new UserFacingError(
+                        res.body.error, res.body.error_description, res.body.error_uri,
+                    );
+                }
+                const tokenInfo = res.body.data;
+                const token = `${tokenInfo.token_type} ${tokenInfo.access_token}`;
+                if (tokenInfo.scope.includes('user.read') === false) {
+                    throw new ForbiddenError('需要 读取用户信息 权限。');
+                }
+
+                // 2. 请求用户信息
+                const userInfoApi = `${config.endpointApi}/admin-api/system/oauth2/user/get`;
+                const userResp = await superagent.get(userInfoApi)
+                    .set('User-Agent', 'Hydro-OAuth')
+                    .set('Authorization', token)
+                    .set('Accept', 'application/vnd.github.v3+json');
+                const userInfo = userResp.body?.data ?? userResp.body;
+
+                const ret = {
+                    _id: `${userInfo.id}`,
+                    email: userInfo.email,
+                    uname: [`${userInfo.nickname}`], // 支持多候选用户名
+                    studentId: userInfo.studentId,
+                    uid: userInfo.uid,
+                    avatar: `url:${userInfo.avatar}`,
+                };
+
+                await TokenModel.del(state, TokenModel.TYPE_OAUTH);
+                this.response.redirect = s.redirect;
+
+                if (!ret.email) throw new ForbiddenError('您没有经过验证的电子邮件。');
+                return ret;
+            },
+        });
+
+        ctx.i18n.load('zh', {
+            'Login with ThStudio': '使用 梯航Studio 登录',
+        });
+    }
 }
