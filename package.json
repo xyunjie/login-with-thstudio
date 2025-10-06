@@ -1,5 +1,5 @@
 {
-  "name": "@hydrooj/login-whit-thstudio",
+  "name": "@hydrooj/login-wiht-thstudio",
   "version": "0.0.1",
   "description": "使用梯航Studio登录HydroOJ",
   "main": "index.ts",
