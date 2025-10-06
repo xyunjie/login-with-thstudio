@@ -1,15 +1,20 @@
 id:
   type: text
   category: system
-  desc: ThStudio OAuth ClientID
+  desc: 梯航管理系统客户端编号
   name: id
 secret:
   type: text
   category: system
-  desc: ThStudio OAuth Secret
+  desc: 梯航管理系统客户端密钥
   name: secret
 endpoint:
   type: text
   category: system
-  desc: ThStudio OAuth endpoint
+  desc: 梯航管理系统认证地址
   name: endpoint
+endpointApi:
+  type: text
+  category: system
+  desc: 梯航管理系统认证后台地址
+  name: endpointApi

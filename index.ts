@@ -8,6 +8,7 @@ declare module 'hydrooj' {
         'login-with-thstudio.id': string;
         'login-with-thstudio.secret': string;
         'login-with-thstudio.endpoint': string;
+        'login-with-thstudio.endpointApi': string;
     }
 }
 
@@ -21,18 +22,16 @@ async function get(this: Handler) {
         TokenModel.add(TokenModel.TYPE_OAUTH, 600, { redirect: this.request.referer }),
     ]);
     // 将用户重定向至第三方平台请求授权。
-    this.response.redirect = `${oauth_url || 'https://admin.tihangstudio.cn'}/oauth2/authorize?response_type=code&client_id=${appid}&redirect_uri=${url}oauth/thstudio/callback&state=${state}&scope=userinfo,openid`;
+    this.response.redirect = `${oauth_url}/auth/sso-login?response_type=code&client_id=${appid}&redirect_uri=${url}oauth/thstudio/callback&state=${state}`;
 }
 
 // 当用户在三方系统中完成授权，需要重定向到 /oauth/xxx/callback，这时所有返回的参数作为 callback 的一参数传入。
 async function callback({ state, code }) {
     
     // 获取系统设置和之前的状态。
-    const [[appid, secret, endpoint, url], s] = await Promise.all([
+    const [[endpointApi, url], s] = await Promise.all([
         SystemModel.getMany([
-            'login-with-thstudio.id',
-            'login-with-thstudio.secret',
-            'login-with-thstudio.endpoint',
+            'login-with-thstudio.endpointApi',
             'server.url',
         ]),
         TokenModel.get(state, TokenModel.TYPE_OAUTH),
@@ -40,26 +39,32 @@ async function callback({ state, code }) {
     // 使用从 url 中返回的 token 请求第三方的 API，获取用户信息，作为函数返回。
     // 在 OAuth 协议中，需要使用 state 和 code 换取 access_token 再调用 API，这在不同系统中可能设计不同。
     // 系统会根据返回的用户信息自动查找已有用户或是创建新用户。
-    const tokenApi = `${endpoint || 'https://admin.tihangstudio.cn'}/oauth2/token?grant_type=authorization_code&client_id=${appid}&client_secret=${secret}&code=${code}`;
+    const tokenApi = `${endpointApi}/admin-api/system/oauth2/token?grant_type=authorization_code&code=${code}&state=${state}`;
     const res = await superagent.get(tokenApi);
     if (res.body.error) {
         throw new UserFacingError(
             res.body.error, res.body.error_description, res.body.error_uri,
         );
     }
-    const t = res.body.access_token;
-    const userInfoApi = `${endpoint || 'https://admin.tihangstudio.cn'}/oauth2/userinfo?access_token=${t}`;
-    const userInfo = await superagent.get(userInfoApi)
+    const tokenInfo = res.body.data;
+    const token = `${tokenInfo.token_type} ${tokenInfo.access_token}`;
+    if (tokenInfo.scope.includes('user.read') === false) {
+        throw new ForbiddenError('需要 读取用户信息 权限。');
+    }
+    const userInfoApi = `${endpointApi}/admin-api/system/oauth2/user/get`;
+    const userResp = await superagent.get(userInfoApi)
         .set('User-Agent', 'Hydro-OAuth')
+        .set('Authorization', token)
         .set('Accept', 'application/vnd.github.v3+json');
+    const userInfo = userResp.data;
     const ret = {
-        _id: `${userInfo.body.openId}`,
-        email: userInfo.body.email,
+        _id: `${userInfo.id}`,
+        email: userInfo.email,
         // 提供多个用户名，若需创建用户则从前往后尝试，直到用户名可用
-        uname: `${userInfo.body.name}`,
-        studentId: userInfo.body.studentId,
-        uid: userInfo.body.ojUid,
-        avatar: `url:${userInfo.body.avatar}`,
+        uname: `${userInfo.nickname}`,
+        studentId: userInfo.studentId,
+        uid: userInfo.uid,
+        avatar: `url:${userInfo.avatar}`,
     };
     await TokenModel.del(state, TokenModel.TYPE_OAUTH);
     this.response.redirect = s.redirect;
