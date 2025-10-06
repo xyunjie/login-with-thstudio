@@ -47,7 +47,7 @@ export default class ThStudioOAuthService extends Service {
                     );
                 }
                 const tokenInfo = res.body.data;
-                console.log(tokenInfo);
+                console.log(res);
                 const token = `${tokenInfo.token_type} ${tokenInfo.access_token}`;
                 if (tokenInfo.scope.includes('user.read') === false) {
                     throw new ForbiddenError('需要 读取用户信息 权限。');
