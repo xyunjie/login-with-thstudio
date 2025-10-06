@@ -41,7 +41,6 @@ export default class ThStudioOAuthService extends Service {
 
                 // 1. 请求 token
                 const tokenApi = `${config.endpointApi}/admin-api/system/oauth2/token?grant_type=authorization_code&code=${code}&state=${state}&redirect_uri=${url}oauth/thstudio/callback`;
-                console.log('请求 token 地址', tokenApi);
                 const res = await superagent.post(tokenApi)
                     .set('Authorization', `Basic ${btoa(`${config.id}:${config.secret}`)}`);
                 if (res.body.error) {
@@ -54,13 +53,11 @@ export default class ThStudioOAuthService extends Service {
                 if (tokenInfo.scope.includes('user.read') === false) {
                     throw new UserFacingError('需要 读取用户信息 权限。');
                 }
-                console.log(token)
                 // 2. 请求用户信息
                 const userInfoApi = `${config.endpointApi}/admin-api/system/oauth2/user/get`;
                 const userResp = await superagent.get(userInfoApi)
                     .set('Authorization', token);
                 const userInfo = userResp.body?.data ?? userResp.body;
-                console.log(userInfo);
                 const ret = {
                     _id: `${userInfo.id}`,
                     email: userInfo.email,
@@ -71,9 +68,8 @@ export default class ThStudioOAuthService extends Service {
                 };
                 await TokenModel.del(state, TokenModel.TYPE_OAUTH);
                 this.response.redirect = s.redirect;
-                console.log('即将跳转', s.redirect);
-                
                 if (!ret.email) throw new UserFacingError('您没有经过验证的电子邮件。');
+                if (!ret.uid) throw new ForbiddenError('您还未开通OJ账号，请开通后使用！');
                 return ret;
             },
         });
