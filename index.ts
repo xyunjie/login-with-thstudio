@@ -67,10 +67,9 @@ export default class ThStudioOAuthService extends Service {
                     uid: userInfo.uid,
                     avatar: `url:${userInfo.avatar}`,
                 };
-
-                await TokenModel.del(state, TokenModel.TYPE_OAUTH);
                 this.response.redirect = s.redirect;
 
+                await TokenModel.del(state, TokenModel.TYPE_OAUTH);
                 if (!ret.email) throw new ForbiddenError('您没有经过验证的电子邮件。');
                 return ret;
             },
