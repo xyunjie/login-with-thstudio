@@ -48,7 +48,6 @@ export default class ThStudioOAuthService extends Service {
                     );
                 }
                 const tokenInfo = res.body.data;
-                console.log(res.body);
                 const token = `${tokenInfo.token_type} ${tokenInfo.access_token}`;
                 if (tokenInfo.scope.includes('user.read') === false) {
                     throw new ForbiddenError('需要 读取用户信息 权限。');
@@ -61,7 +60,7 @@ export default class ThStudioOAuthService extends Service {
                     .set('Authorization', token)
                     .set('Accept', 'application/vnd.github.v3+json');
                 const userInfo = userResp.body?.data ?? userResp.body;
-
+                console.log(userInfo);
                 const ret = {
                     _id: `${userInfo.id}`,
                     email: userInfo.email,
