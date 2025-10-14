@@ -27,7 +27,7 @@ export default class ThStudioOAuthService extends Service {
                 });
                 console.log('保存的路由', this.request.referer);
                 const url = SystemModel.get('server.url');
-                this.response.redirect = `${config.endpoint}/#/auth/sso-login?response_type=code&client_id=${config.id}&redirect_uri=${url}oauth/thstudio/callback&state=${state}`;
+                this.response.redirect = `${config.endpoint}/auth/sso-login?response_type=code&client_id=${config.id}&redirect_uri=${url}oauth/thstudio/callback&state=${state}`;
             },
 
             // 回调处理
